@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Medicine 💊 Daily Schedule</title>
+  <style>
+    :root {
+      --bg-color: #0b141a;
+      --card-bg: #111b21;
+      --panel-bg: #1f2c34;
+      --primary: #00a884;
+      --primary-hover: #008f70;
+      --text-main: #e9edef;
+      --text-muted: #8696a0;
+      --danger: #ea868f;
+      --border-color: #222d34;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 12px;
+    }
+
+    .app-container {
+      width: 100%;
+      max-width: 480px;
+      background: var(--card-bg);
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      border: 1px solid var(--border-color);
+    }
+
+    header {
+      background: var(--panel-bg);
+      padding: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .title-area h1 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-main);
+    }
+
+    .subtitle {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .icon-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.2rem;
+      cursor: pointer;
+      padding: 6px;
+      border-radius: 50%;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .icon-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-main);
+    }
+
+    .progress-bar-container {
+      height: 4px;
+      background: #2a3942;
+      width: 100%;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: var(--primary);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    .schedule-list {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      flex-grow: 1;
+      overflow-y: auto;
+    }
+
+    .dose-card {
+      background: var(--panel-bg);
+      border-radius: 12px;
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border: 1px solid transparent;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+
+    .dose-card.completed {
+      opacity: 0.65;
+    }
+
+    .dose-card.overdue {
+      border-color: var(--danger);
+      background: rgba(234, 134, 143, 0.1);
+      animation: pulse-border 1.5s infinite;
+    }
+
+    @keyframes pulse-border {
+      0% { border-color: rgba(234, 134, 143, 0.4); }
+      50% { border-color: rgba(234, 134, 143, 1); }
+      100% { border-color: rgba(234, 134, 143, 0.4); }
+    }
+
+    .dose-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-grow: 1;
+    }
+
+    .checkbox {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 2px solid var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.2s;
+    }
+
+    .dose-card.completed .checkbox {
+      background: var(--primary);
+      border-color: var(--primary);
+    }
+
+    .checkbox::after {
+      content: '✓';
+      color: #fff;
+      font-size: 12px;
+      display: none;
+    }
+
+    .dose-card.completed .checkbox::after {
+      display: block;
+    }
+
+    .dose-text {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .dose-time {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .dose-note {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .whatsapp-alert-btn {
+      background: #25D366;
+      color: white;
+      border: none;
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    /* Modal Styling */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 100;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 20px;
+      width: 100%;
+      max-width: 400px;
+      border: 1px solid var(--border-color);
+    }
+
+    .modal h2 {
+      font-size: 1.1rem;
+      margin-bottom: 12px;
+    }
+
+    .input-group {
+      margin-bottom: 12px;
+    }
+
+    .input-group label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .input-group input {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      background: var(--panel-bg);
+      color: var(--text-main);
+      font-size: 0.9rem;
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <header>
+      <div class="title-area">
+        <h1>Medicine 💊 Daily Schedule</h1>
+        <div class="subtitle" id="current-date">Today</div>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" onclick="openGuardianModal()" title="Guardian Settings">👤</button>
+        <button class="icon-btn" onclick="triggerTestAlarm()" title="Test Sound Alarm">🔔</button>
+      </div>
+    </header>
+
+    <div class="progress-bar-container">
+      <div class="progress-bar" id="progress-bar"></div>
+    </div>
+
+    <div class="schedule-list" id="schedule-list">
+      <!-- Injected dynamically -->
+    </div>
+  </div>
+
+  <!-- Guardian Settings Modal -->
+  <div class="modal-overlay" id="guardian-modal">
+    <div class="modal">
+      <h2>Guardian WhatsApp Contact</h2>
+      <div class="input-group">
+        <label>Guardian Name</label>
+        <input type="text" id="guardian-name" placeholder="Parent / Caregiver">
+      </div>
+      <div class="input-group">
+        <label>WhatsApp Number (with country code, e.g., 971501234567)</label>
+        <input type="tel" id="guardian-phone" placeholder="971500000000">
+      </div>
+      <button class="btn-primary" onclick="saveGuardianInfo()">Save Settings</button>
+    </div>
+  </div>
+
+  <script>
+    const defaultDoses = [
+      { id: 1, timeStr: '06:00 AM', hour: 6, min: 0, note: 'Before Food', taken: false },
+      { id: 2, timeStr: '08:00 AM', hour: 8, min: 0, note: 'After Food', taken: false },
+      { id: 3, timeStr: '10:00 AM', hour: 10, min: 0, note: 'With Fruits', taken: false },
+      { id: 4, timeStr: '02:00 PM', hour: 14, min: 0, note: 'After Food', taken: false },
+      { id: 5, timeStr: '06:00 PM', hour: 18, min: 0, note: 'Evening', taken: false },
+      { id: 6, timeStr: '08:00 PM', hour: 20, min: 0, note: 'Evening', taken: false },
+      { id: 7, timeStr: '10:00 PM', hour: 22, min: 0, note: 'Night After Food', taken: false }
+    ];
+
+    let schedule = JSON.parse(localStorage.getItem('med_schedule')) || defaultDoses;
+    let guardian = JSON.parse(localStorage.getItem('guardian_info')) || { name: '', phone: '' };
+    let lastAlarmMinute = -1;
+
+    function renderSchedule() {
+      const listEl = document.getElementById('schedule-list');
+      listEl.innerHTML = '';
+      const now = new Date();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+      let completedCount = 0;
+      let hasOverdue = false;
+
+      schedule.forEach((dose) => {
+        const doseMinutes = dose.hour * 60 + dose.min;
+        const isOverdue = !dose.taken && currentMinutes > doseMinutes;
+
+        if (isOverdue) hasOverdue = true;
+        if (dose.taken) completedCount++;
+
+        const card = document.createElement('div');
+        card.className = `dose-card ${dose.taken ? 'completed' : ''} ${isOverdue ? 'overdue' : ''}`;
+        
+        card.innerHTML = `
+          <div class="dose-info" onclick="toggleDose(${dose.id})">
+            <div class="checkbox"></div>
+            <div class="dose-text">
+              <span class="dose-time">${dose.timeStr}</span>
+              <span class="dose-note">${dose.note}</span>
+            </div>
+          </div>
+          ${isOverdue ? `
+            <a class="whatsapp-alert-btn" href="${getWhatsAppLink(dose)}" target="_blank" onclick="event.stopPropagation()">
+              📲 WhatsApp Guard
+            </a>
+          ` : ''}
+        `;
+
+        listEl.appendChild(card);
+      });
+
+      // Update progress bar
+      const progressPercent = (completedCount / schedule.length) * 100;
+      document.getElementById('progress-bar').style.width = `${progressPercent}%`;
+      document.getElementById('current-date').innerText = now.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+
+      // Trigger audio alarm if there's an active overdue medicine and minute changed
+      if (hasOverdue && currentMinutes !== lastAlarmMinute) {
+        playAlarmSound();
+        lastAlarmMinute = currentMinutes;
+      }
+    }
+
+    function toggleDose(id) {
+      schedule = schedule.map(d => d.id === id ? { ...d, taken: !d.taken } : d);
+      localStorage.setItem('med_schedule', JSON.stringify(schedule));
+      renderSchedule();
+    }
+
+    function getWhatsAppLink(dose) {
+      const phone = guardian.phone ? guardian.phone.replace(/[^0-9]/g, '') : '';
+      const message = encodeURIComponent(`⚠️ Missed Medicine Alert:\n\nThe dose for ${dose.timeStr} (${dose.note}) was missed or not marked as taken.`);
+      return phone ? `https://wa.me/${phone}?text=${message}` : '#';
+    }
+
+    function openGuardianModal() {
+      document.getElementById('guardian-name').value = guardian.name || '';
+      document.getElementById('guardian-phone').value = guardian.phone || '';
+      document.getElementById('guardian-modal').classList.add('active');
+    }
+
+    function saveGuardianInfo() {
+      guardian.name = document.getElementById('guardian-name').value;
+      guardian.phone = document.getElementById('guardian-phone').value;
+      localStorage.setItem('guardian_info', JSON.stringify(guardian));
+      document.getElementById('guardian-modal').classList.remove('active');
+      renderSchedule();
+    }
+
+    // Audio alarm generator using Web Audio API
+    function playAlarmSound() {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5 note
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.2); // A5 note
+
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.5);
+
+        if (navigator.vibrate) {
+          navigator.vibrate([200, 100, 200]);
+        }
+      } catch (e) {
+        console.log('Audio Context interaction required first.');
+      }
+    }
+
+    function triggerTestAlarm() {
+      playAlarmSound();
+    }
+
+    // Check every 10 seconds for time changes
+    setInterval(() => {
+      renderSchedule();
+    }, 10000);
+
+    renderSchedule();
+  </script>
+</body>
+</html>
