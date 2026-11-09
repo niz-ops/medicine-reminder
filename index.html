@@ -307,7 +307,24 @@
     </div>
   </div>
 
-  <script>
+  <!-- Firebase SDKs -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDnTkTdlkwWTkuvqSJYpMo_Pekbkx8EPys",
+      authDomain: "medicine-reminder-f3fd9.firebaseapp.com",
+      projectId: "medicine-reminder-f3fd9",
+      storageBucket: "medicine-reminder-f3fd9.firebasestorage.app",
+      messagingSenderId: "420890473750",
+      appId: "1:420890473750:web:663c7906b66a5399288c37",
+      measurementId: "G-003CJEWN47"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
     const defaultDoses = [
       { id: 1, timeStr: '06:00 AM', hour: 6, min: 0, note: 'Before Food', taken: false },
       { id: 2, timeStr: '08:00 AM', hour: 8, min: 0, note: 'After Food', taken: false },
@@ -318,11 +335,38 @@
       { id: 7, timeStr: '10:00 PM', hour: 22, min: 0, note: 'Night After Food', taken: false }
     ];
 
-    let schedule = JSON.parse(localStorage.getItem('med_schedule')) || defaultDoses;
-    let guardian = JSON.parse(localStorage.getItem('guardian_info')) || { name: '', phone: '' };
+    let schedule = [...defaultDoses];
+    let guardian = { name: '', phone: '' };
     let lastAlarmMinute = -1;
 
-    function renderSchedule() {
+    const todayStr = new Date().toISOString().split('T')[0]; // e.g. "2026-06-06"
+
+    async function loadDataFromFirebase() {
+      try {
+        // Load Schedule for Today
+        const docRef = doc(db, "schedules", todayStr);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          schedule = docSnap.data().items;
+        } else {
+          // Initialize today's schedule in cloud
+          await setDoc(docRef, { items: defaultDoses });
+          schedule = [...defaultDoses];
+        }
+
+        // Load Guardian Info
+        const guardRef = doc(db, "settings", "guardian");
+        const guardSnap = await getDoc(guardRef);
+        if (guardSnap.exists()) {
+          guardian = guardSnap.data();
+        }
+      } catch (e) {
+        console.error("Firebase load error, falling back to local:", e);
+      }
+      renderSchedule();
+    }
+
+    window.renderSchedule = function() {
       const listEl = document.getElementById('schedule-list');
       listEl.innerHTML = '';
       const now = new Date();
@@ -342,7 +386,7 @@
         card.className = `dose-card ${dose.taken ? 'completed' : ''} ${isOverdue ? 'overdue' : ''}`;
         
         card.innerHTML = `
-          <div class="dose-info" onclick="toggleDose(${dose.id})">
+          <div class="dose-info" onclick="window.toggleDose(${dose.id})">
             <div class="checkbox"></div>
             <div class="dose-text">
               <span class="dose-time">${dose.timeStr}</span>
@@ -359,22 +403,25 @@
         listEl.appendChild(card);
       });
 
-      // Update progress bar
       const progressPercent = (completedCount / schedule.length) * 100;
       document.getElementById('progress-bar').style.width = `${progressPercent}%`;
       document.getElementById('current-date').innerText = now.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 
-      // Trigger audio alarm if there's an active overdue medicine and minute changed
       if (hasOverdue && currentMinutes !== lastAlarmMinute) {
         playAlarmSound();
         lastAlarmMinute = currentMinutes;
       }
     }
 
-    function toggleDose(id) {
+    window.toggleDose = async function(id) {
       schedule = schedule.map(d => d.id === id ? { ...d, taken: !d.taken } : d);
-      localStorage.setItem('med_schedule', JSON.stringify(schedule));
       renderSchedule();
+      try {
+        const docRef = doc(db, "schedules", todayStr);
+        await setDoc(docRef, { items: schedule });
+      } catch (e) {
+        console.error("Error saving to Firestore:", e);
+      }
     }
 
     function getWhatsAppLink(dose) {
@@ -383,21 +430,25 @@
       return phone ? `https://wa.me/${phone}?text=${message}` : '#';
     }
 
-    function openGuardianModal() {
+    window.openGuardianModal = function() {
       document.getElementById('guardian-name').value = guardian.name || '';
       document.getElementById('guardian-phone').value = guardian.phone || '';
       document.getElementById('guardian-modal').classList.add('active');
     }
 
-    function saveGuardianInfo() {
+    window.saveGuardianInfo = async function() {
       guardian.name = document.getElementById('guardian-name').value;
       guardian.phone = document.getElementById('guardian-phone').value;
-      localStorage.setItem('guardian_info', JSON.stringify(guardian));
       document.getElementById('guardian-modal').classList.remove('active');
       renderSchedule();
+      try {
+        const guardRef = doc(db, "settings", "guardian");
+        await setDoc(guardRef, guardian);
+      } catch (e) {
+        console.error("Error saving guardian info:", e);
+      }
     }
 
-    // Audio alarm generator using Web Audio API
     function playAlarmSound() {
       try {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -405,8 +456,8 @@
         const gain = audioCtx.createGain();
         
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5 note
-        osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.2); // A5 note
+        osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.2);
 
         gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
@@ -421,20 +472,19 @@
           navigator.vibrate([200, 100, 200]);
         }
       } catch (e) {
-        console.log('Audio Context interaction required first.');
+        console.log('Audio interaction needed.');
       }
     }
 
-    function triggerTestAlarm() {
+    window.triggerTestAlarm = function() {
       playAlarmSound();
     }
 
-    // Check every 10 seconds for time changes
     setInterval(() => {
-      renderSchedule();
+      window.renderSchedule();
     }, 10000);
 
-    renderSchedule();
+    loadDataFromFirebase();
   </script>
 </body>
 </html>
